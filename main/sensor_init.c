@@ -142,56 +142,76 @@ esp_err_t bmp280_init(sensor_t *sensor) {
 }
 
 void i2c_sensor_read(void *pvParameters) {
-    sensor_t *sensor = (sensor_t *)pvParameters;
-    uint8_t data[14];
-    struct bmp280_data b_data = bmp280_read_calibration_data(sensor);
-    while (1) {
-        switch (sensor->name) {
-            case SENSOR_MPU9250: {
-                if (register_read(sensor->dev_handle, MPU9250_ACCEL_GYRO_REG_START, data, 14) != ESP_OK) {
-                    ESP_LOGE(SENSOR_TAG, "Failed to read MPU9250.");
-                    continue;
-                }
-                int16_t mpu9250_values[7];
-                float normalized_values[7];
+    sensor_t **sensors = (sensor_t **)pvParameters; 
+    uint8_t data[14];  // Buffer for storing sensor data
 
-                for (int i = 0; i < 7; ++i) {
-                    mpu9250_values[i] = (int16_t)((data[2 * i] << 8) | data[2 * i + 1]);
-                    normalized_values[i] = (i > 3) ? mpu9250_compensate_G_f(sensor, mpu9250_values[i])
-                                                   : mpu9250_compensate_A_f(sensor, mpu9250_values[i]);
-                }
+    i2c_master_bus_handle_t bus_handle = NULL;
 
-                // ESP_LOGI(SENSOR_TAG, "MPU9250 Raw Accel: X=%d, Y=%d, Z=%d | Raw Gyro: X=%d, Y=%d, Z=%d",
-                //         mpu9250_values[0], mpu9250_values[1], mpu9250_values[2],
-                //         mpu9250_values[4], mpu9250_values[5], mpu9250_values[6]);
-                
-                ESP_LOGI(SENSOR_TAG, 
-                    "========== SENSOR DATA ==========");
-                ESP_LOGI(SENSOR_TAG, 
-                    "MPU9250 | Accel (g):  X=%.2f   Y=%.2f  Z=%.2f", 
-                    normalized_values[0], normalized_values[1], normalized_values[2]);
-                ESP_LOGI(SENSOR_TAG, 
-                    "        | Gyro (°/s): X=%.2f  Y=%.2f  Z=%.2f", 
-                    normalized_values[4], normalized_values[5], normalized_values[6]);
-            } break;
-            case SENSOR_BMP280: {
-                if (register_read(sensor->dev_handle, BMP280_REG_START, data, 6) != ESP_OK) {
-                    ESP_LOGE(SENSOR_TAG, "Failed to read BMP280");
-                    continue; 
-                }
-                int32_t raw_pressure = (data[0] << 12) | (data[1] << 4) | (data[2] >> 4);
-                int32_t raw_temperature = (data[3] << 12) | (data[4] << 4) | (data[5] >> 4);
+    if (i2c_master_init(&bus_handle) != ESP_OK) {
+        ESP_LOGE(I2C_TAG, "Failed to create I2C Bus.");
+        vTaskSuspend(NULL);
+    }
 
-                int32_t temperature = bmp280_compensate_T_int32(raw_temperature, &b_data);
-                uint32_t pressure = bmp280_compensate_P_uint32(raw_pressure, &b_data);
-
-                ESP_LOGI(SENSOR_TAG, 
-                    "BMP280  | Temp (°C): %.2f  |  Pressure (hPa): %.2f", 
-                    temperature / 100.0f, pressure / 25600.0f);
-                ESP_LOGI(SENSOR_TAG, 
-                    "=================================\n");
-            } break;
+    for (int i = 0; i < sizeof(sensors) / sizeof(sensors[0]); i++) {
+        if (i2c_dev_init(bus_handle, sensors[i]) != ESP_OK) {
+            ESP_LOGE(I2C_TAG, "Failed to create I2C device at address 0x%02X.", sensors[i]->addr);
+            vTaskSuspend(NULL);
         }
-        vTaskDelay(pdMS_TO_TICKS(1000)); // wait 1 second
+        ESP_LOGI(I2C_TAG, "Initialized sensor at address 0x%02X", sensors[i]->addr);
+
+        if (sensors[i]->name == SENSOR_BMP280) bmp280_init(sensors[i]);
+        if (sensors[i]->name == SENSOR_MPU9250) mpu9250_init(sensors[i]);
+    }
+    while (1) {
+        for (int i = 0; i < sizeof(sensors) / sizeof(sensors[0]); i++) {
+            switch (sensors[i]->name) {
+                case SENSOR_MPU9250: {
+                    // Read data from MPU9250 sensor
+                    if (register_read(sensors[i]->dev_handle, MPU9250_ACCEL_GYRO_REG_START, data, 14) != ESP_OK) {
+                        ESP_LOGE(SENSOR_TAG, "Failed to read MPU9250.");
+                        continue;
+                    }
+
+                    int16_t mpu9250_values[7];
+                    float normalized_values[7];
+
+                    for (int j = 0; j < 7; ++j) {
+                        mpu9250_values[j] = (int16_t)((data[2 * j] << 8) | data[2 * j + 1]);
+                        normalized_values[j] = (j > 3) ? mpu9250_compensate_G_f(sensors[i], mpu9250_values[j])
+                                                       : mpu9250_compensate_A_f(sensors[i], mpu9250_values[j]);
+                    }
+
+                    ESP_LOGI(SENSOR_TAG, "========== SENSOR DATA ==========");
+                    ESP_LOGI(SENSOR_TAG, "MPU9250 | Accel (g):  X=%.2f   Y=%.2f  Z=%.2f", 
+                            normalized_values[0], normalized_values[1], normalized_values[2]);
+                    ESP_LOGI(SENSOR_TAG, "        | Gyro (°/s): X=%.2f  Y=%.2f  Z=%.2f", 
+                            normalized_values[4], normalized_values[5], normalized_values[6]);
+                } break;
+
+                case SENSOR_BMP280: {
+                    // Read data from BMP280 sensor
+                    struct bmp280_data b_data = bmp280_read_calibration_data(sensors[i]);
+
+                    if (register_read(sensors[i]->dev_handle, BMP280_REG_START, data, 6) != ESP_OK) {
+                        ESP_LOGE(SENSOR_TAG, "Failed to read BMP280.");
+                        continue; 
+                    }
+
+                    int32_t raw_pressure = (data[0] << 12) | (data[1] << 4) | (data[2] >> 4);
+                    int32_t raw_temperature = (data[3] << 12) | (data[4] << 4) | (data[5] >> 4);
+
+                    int32_t temperature = bmp280_compensate_T_int32(raw_temperature, &b_data);
+                    uint32_t pressure = bmp280_compensate_P_uint32(raw_pressure, &b_data);
+
+                    ESP_LOGI(SENSOR_TAG, "BMP280  | Temp (°C): %.2f  |  Pressure (hPa): %.2f", 
+                            temperature / 100.0f, pressure / 25600.0f);
+                    ESP_LOGI(SENSOR_TAG, "=================================\n");
+                } break;
+
+                default:
+                    ESP_LOGW(SENSOR_TAG, "Unknown sensor type.");
+            }
+        }
+        vTaskDelay(pdMS_TO_TICKS(1000));
     }
 }
