@@ -3,6 +3,11 @@
 const char *I2C_TAG = "I2C_INIT";
 const char *SENSOR_TAG = "SENSOR_INIT";
 
+sensor_t *sensors[] = {
+    &(sensor_t){ SENSOR_MPU9250, MPU9250_ADDR, 0 },
+    &(sensor_t){ SENSOR_BMP280, BMP280_ADDR, 0 }
+};
+
 esp_err_t register_read(i2c_master_dev_handle_t dev_handle, uint8_t reg_addr, uint8_t *data, size_t len) {
     return i2c_master_transmit_receive(dev_handle, &reg_addr, 1, data, len, pdMS_TO_TICKS(I2C_MASTER_TIMEOUT_MS));
 }
@@ -142,7 +147,6 @@ esp_err_t bmp280_init(sensor_t *sensor) {
 }
 
 void i2c_sensor_read(void *pvParameters) {
-    sensor_t **sensors = (sensor_t **)pvParameters; 
     uint8_t data[14];  // Buffer for storing sensor data
 
     i2c_master_bus_handle_t bus_handle = NULL;
@@ -162,6 +166,7 @@ void i2c_sensor_read(void *pvParameters) {
         if (sensors[i]->name == SENSOR_BMP280) bmp280_init(sensors[i]);
         if (sensors[i]->name == SENSOR_MPU9250) mpu9250_init(sensors[i]);
     }
+
     while (1) {
         for (int i = 0; i < sizeof(sensors) / sizeof(sensors[0]); i++) {
             switch (sensors[i]->name) {
