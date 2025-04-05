@@ -68,7 +68,7 @@ void i2c_sensor_read(void *pvParameters) {
 
         xSemaphoreTake(mutex_1, portMAX_DELAY);
 
-        insert_into_production_queue(collected_data);
+        prod_enqueue(&production_queue, collected_data);
 
         xSemaphoreGive(mutex_1);
         xSemaphoreGive(reading_done);

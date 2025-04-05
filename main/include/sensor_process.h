@@ -13,14 +13,21 @@ typedef struct {
     sensor_data buffer[FILTERED_SIZE];
 } fil_queue;
 
+typedef struct {
+    size_t head, count;
+    sensor_data buffer[];
+} queue;
+
+#define prod_enqueue(q_ptr, data) enqueue((queue *) (q_ptr), PRODUCTION_SIZE, (data))
+#define fil_enqueue(q_ptr, data) enqueue((queue *) (q_ptr), FILTERED_SIZE, (data))
+
 extern SemaphoreHandle_t mutex_2; // mutex between sensor-processing and sensor-printing tasks
 extern SemaphoreHandle_t processing_done;   
 
 extern fil_queue filtered_queue;
 
-void insert_into_production_queue(sensor_data data);
-void insert_into_filtered_queue(sensor_data data);
-void sort_queue(void *queue_ptr);
+void enqueue(queue *queue, size_t size, sensor_data data);                                                                                                                       
+void sort_queue(queue *queue_ptr);
 
 void filter_sensor_value(void *pvParameters);
 #endif
