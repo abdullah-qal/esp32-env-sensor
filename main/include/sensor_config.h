@@ -84,5 +84,4 @@ esp_err_t mpu9250_init(sensor_t *sensor);
 uint32_t mpu9250_compensate_A_uint32(sensor_t *sensor);
 uint32_t mpu9250_compensate_G_uint32(sensor_t *sensor);
 
-
 #endif

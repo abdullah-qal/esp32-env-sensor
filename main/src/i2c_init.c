@@ -1,7 +1,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
-#include "include/i2c_init.h"
+#include "i2c_init.h"
 
 static const char *I2C_TAG = "I2C_INIT";
 

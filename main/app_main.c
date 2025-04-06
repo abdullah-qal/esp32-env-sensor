@@ -11,12 +11,6 @@ void app_main(void) {
     processing_done = xSemaphoreCreateBinary();
     reading_done = xSemaphoreCreateBinary();
 
-    // Check if creation succeeded
-    if (!mutex_1 || !mutex_2 || !processing_done || !reading_done) {
-        ESP_LOGE("INIT", "Semaphore creation failed");
-        abort();
-    }
-
     i2c_sensor_init();
 
     xTaskCreatePinnedToCore(i2c_sensor_read, "sensor_collection", 4096, NULL, 3, NULL, tskNO_AFFINITY);

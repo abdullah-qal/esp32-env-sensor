@@ -1,8 +1,8 @@
 #include "esp_log.h"
 
-#include "include/i2c_init.h"
-#include "include/sensor_read.h"
-#include "include/sensor_process.h"
+#include "i2c_init.h"
+#include "sensor_read.h"
+#include "sensor_process.h"
 
 static const char *SENSOR_TAG = "SENSOR_READ";
 

@@ -1,3 +1,9 @@
-idf_component_register(SRCS "app_main.c" "src/i2c_init.c" "src/sensor_read.c" "src/sensor_process.c" "src/sensor_transmit.c" "src/sensor_config.c"
-                    INCLUDE_DIRS ".")
- 
+file(GLOB_RECURSE srcs "app_main.c" "src/*.c")
+
+idf_component_register(
+    SRCS "${srcs}"
+    INCLUDE_DIRS
+    "./include" 
+    REQUIRES driver
+    PRIV_REQUIRES bt nvs_flash
+)

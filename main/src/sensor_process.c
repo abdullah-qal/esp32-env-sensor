@@ -1,7 +1,7 @@
 #include "esp_log.h"
 
-#include "include/sensor_read.h"
-#include "include/sensor_process.h"
+#include "sensor_read.h"
+#include "sensor_process.h"
 
 static const char *SENSOR_TAG = "SENSOR_PROCESS";
 

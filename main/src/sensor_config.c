@@ -1,5 +1,5 @@
-#include "include/sensor_config.h"
-#include "include/i2c_init.h"
+#include "sensor_config.h"
+#include "i2c_init.h"
 
 static const char *CONFIG_TAG = "SENSOR_CONFIG";
 
